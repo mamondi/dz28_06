@@ -2,33 +2,32 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
+using System.Threading.Tasks;
 
 class Program
 {
-    static void Main(string[] args)
+    static async Task Main(string[] args)
     {
-        Thread serverThread = new Thread(StartServer);
-        serverThread.Start();
+        var serverTask = StartServer();
 
-        Thread.Sleep(1000);
+        await Task.Delay(1000);
 
-        StartClient();
+        await StartClient();
 
-        serverThread.Join();
+        await serverTask;
     }
 
-    static void StartServer()
+    static async Task StartServer()
     {
         TcpListener server = new TcpListener(IPAddress.Any, 8888);
         server.Start();
         Console.WriteLine("Сервер запущено. Очiкування пiдключень...");
 
-        TcpClient client = server.AcceptTcpClient();
+        TcpClient client = await server.AcceptTcpClientAsync();
         NetworkStream stream = client.GetStream();
 
         byte[] buffer = new byte[256];
-        int bytesRead = stream.Read(buffer, 0, buffer.Length);
+        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
         string clientRequest = Encoding.UTF8.GetString(buffer, 0, bytesRead).Trim();
 
         string response = "";
@@ -42,26 +41,27 @@ class Program
         }
 
         byte[] responseBytes = Encoding.UTF8.GetBytes(response);
-        stream.Write(responseBytes, 0, responseBytes.Length);
+        await stream.WriteAsync(responseBytes, 0, responseBytes.Length);
 
         stream.Close();
         client.Close();
         server.Stop();
     }
 
-    static void StartClient()
+    static async Task StartClient()
     {
-        TcpClient client = new TcpClient("127.0.0.1", 8888);
+        TcpClient client = new TcpClient();
+        await client.ConnectAsync("127.0.0.1", 8888);
         NetworkStream stream = client.GetStream();
 
         Console.WriteLine("Введiть 'TIME' для запиту часу або 'DATE' для запиту дати:");
         string userInput = Console.ReadLine().ToUpper();
 
         byte[] data = Encoding.UTF8.GetBytes(userInput);
-        stream.Write(data, 0, data.Length);
+        await stream.WriteAsync(data, 0, data.Length);
 
         byte[] buffer = new byte[256];
-        int bytesRead = stream.Read(buffer, 0, buffer.Length);
+        int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
         string serverResponse = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
         string serverIP = client.Client.RemoteEndPoint.ToString();
